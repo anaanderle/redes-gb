@@ -1,0 +1,53 @@
+% Diagrama do mecanismo e da cadeia de propagacao (produzido pelo grupo).
+% Requer \usepackage{tikz} e \usetikzlibrary{positioning,arrows.meta,fit,backgrounds}
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  >={Stealth[length=2mm]},
+  box/.style={draw, rounded corners=2pt, align=center, inner sep=3pt, fill=white},
+  cut/.style={box, draw=red!70!black, very thick},
+  ok/.style={box, draw=green!45!black, fill=green!8},
+  bad/.style={box, draw=red!70!black, fill=red!8},
+  lay/.style={font=\sffamily\scriptsize\bfseries, anchor=west, text=black!70},
+]
+% ---------------- camada fisica ----------------
+\node[box, text width=2.55cm] (ship) at (0,0)
+  {MV \textit{Rubymar} atingido em 18/02, abandonado com \textbf{âncora lançada}, à deriva (causa provável, não confirmada)};
+\node[cut, text width=3.2cm, right=0.45cm of ship] (seacom)
+  {\mbox{\textbf{SEACOM/TGN-EA}}\ $\times$\,$\approx$09:46\\Mombasa--Djibuti--Zafarana; pares de fibra da Tata (AS6453) e ramal p/ Jeddah};
+\node[cut, text width=3.2cm, right=0.35cm of seacom] (aae)
+  {\textbf{AAE-1}\ \ $\times$\,$\approx$09:51\\Ásia--Djibuti--Zafarana--Europa; sócios incluem Djibouti Tel., e\&, VNPT, Mobily};
+\node[box, text width=2.75cm, right=0.35cm of aae, draw=black!40, dashed, text=black!60] (eig)
+  {\textbf{EIG}: já fora de operação desde dez/2023 (redundância do corredor já reduzida)};
+\draw[->, red!70!black, thick] (ship.east) -- (seacom.west);
+\draw[->, red!70!black, thick] (ship.north) to[bend left=18] (aae.north);
+\node[font=\sffamily\scriptsize\itshape, text=black!60, above=0.8cm of seacom.north east] {corredor Mar Vermelho / Bab-el-Mandeb (camada física)};
+
+% ---------------- camada de transporte / enlace ----------------
+\node[box, text width=13.4cm, below=0.5cm of seacom.south west, anchor=north west, xshift=-3.0cm] (opt)
+  {\textbf{Transporte óptico e enlace:} perda de sinal (LOS) nos comprimentos de onda arrendados pelos trânsitos que
+   compartilham o corredor $\Rightarrow$ interfaces caem, ou BFD/\textit{hold timer} expira $\Rightarrow$ sessões eBGP com
+   Tata, Cogent, Arelion e NTT caem \textbf{juntas} (mesmo SRLG), embora sejam provedores ``independentes''};
+\draw[->, thick] (seacom.south) -- (opt.north -| seacom.south);
+\draw[->, thick] (aae.south) -- (opt.north -| aae.south);
+
+% ---------------- camada de roteamento ----------------
+\node[box, text width=13.4cm, below=0.35cm of opt] (bgp)
+  {\textbf{BGP (RFC 4271):} UPDATEs com retiradas; cada AS refaz o processo de decisão (§9.1) e anuncia o novo melhor caminho;
+   coletores do RIS veem a rajada (73\,mil anúncios de AS30990 entre 09:00 e 09:59)};
+\draw[->, thick] (opt) -- (bgp);
+
+\node[ok, text width=2.45cm, below=0.45cm of bgp.south west, anchor=north west] (dj)
+  {\textbf{AS30990} Djibouti Tel.\\perde AS174 $\rightarrow$ AS6762 e AS3356; Cogent volta horas depois};
+\node[ok, text width=2.45cm, right=0.18cm of dj] (et)
+  {\textbf{AS8966} Etisalat\\perde AS1299 e AS2914 $\rightarrow$ AS7473, AS6762, AS3356};
+\node[ok, text width=2.45cm, right=0.18cm of et] (tz)
+  {\textbf{AS37143} Arusha Art\\perde AS6453; prefixo segue via AS36930};
+\node[bad, text width=2.45cm, right=0.18cm of tz] (ks)
+  {\textbf{AS8895} KACST\\prefixo só via AS6453 é \textbf{retirado} às 09:46};
+\node[bad, text width=2.45cm, right=0.18cm of ks] (eq)
+  {\textbf{102.213.16.0/23}\\único upstream AS37084 perde Tata e Cogent};
+\foreach \n in {dj,et,tz,ks,eq} \draw[->] (bgp.south -| \n.north) -- (\n.north);
+
+\node[font=\sffamily\scriptsize, text=green!40!black, below=0.08cm of et.south east, anchor=north] {recuperação automática por redundância de upstreams};
+\node[font=\sffamily\scriptsize, text=red!60!black, below=0.08cm of ks.south east, anchor=north] {sem alternativa no nível do prefixo};
+\end{tikzpicture}
